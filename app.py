@@ -4,6 +4,8 @@ import pickle
 import requests
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
+import os
+import gdown
 
 # -------------------------------------------------
 # PAGE CONFIG
@@ -24,11 +26,34 @@ st.caption("Powered by semantic embeddings + IMDb data")
 
 @st.cache_data
 def load_data():
-    movies = pd.read_pickle("models/movies_metadata.pkl")
 
-    with open("models/semantic_embeddings.pkl", "rb") as f:
+    os.makedirs("models", exist_ok=True)
+
+    movies_path = "models/movies_metadata.pkl"
+    embeddings_path = "models/semantic_embeddings.pkl"
+
+    # ---- Check movies file ----
+    if not os.path.exists(movies_path):
+        st.error("movies_metadata.pkl not found in models folder.")
+        st.stop()
+
+    # ---- Download embeddings if missing ----
+    if not os.path.exists(embeddings_path):
+
+        st.info("Downloading embeddings file. Please wait...")
+
+        file_id = "13k3As0EXIw4eBw6QrdiyXuVwkbztJOv-"
+        url = f"https://drive.google.com/uc?id={file_id}"
+
+        gdown.download(url, embeddings_path, quiet=False)
+
+    # ---- Load data ----
+    movies = pd.read_pickle(movies_path)
+
+    with open(embeddings_path, "rb") as f:
         embeddings = pickle.load(f)
 
+    # ---- Data cleaning ----
     movies["year"] = movies["year"].fillna(0).astype(int)
     movies["display_title"] = movies["title"] + " (" + movies["year"].astype(str) + ")"
 
