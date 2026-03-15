@@ -106,6 +106,8 @@ https://your-app-name.streamlit.app
 
 # 👨‍💻 Author
 
-Jeet Patel
-Computer Engineering Student
-GTU – Institute of Technology and Research
+Name :- Jeet Patel
+
+Branch :- Computer Engineering Student
+
+Institute :- GTU – ITR (Institute of Technology and Research)
