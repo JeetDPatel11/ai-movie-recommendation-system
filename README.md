@@ -85,13 +85,9 @@ streamlit run app.py
 
 ---
 
-# 🌐 Live Demo
+# 🌐 Live App
 
-After deployment on Streamlit Cloud, the application will be accessible via a public link.
-
-Example:
-
-https://your-app-name.streamlit.app
+(https://ai-movie-recommendation-system-h3sby4fk5gb8es6tck4cz5.streamlit.app/)
 
 ---
 
