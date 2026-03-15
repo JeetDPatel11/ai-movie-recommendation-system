@@ -2,15 +2,18 @@
 __pycache__/
 *.pyc
 *.pyo
-*.pyd
 
 # Virtual environment
 venv/
 .env
 
-# Data / models
-models/
-*.pkl
-
 # Mac
 .DS_Store
+
+# Large ML files
+models/semantic_embeddings.pkl
+models/tfidf_matrix.pkl
+models/tfidf_vectorizer.pkl
+
+# Raw data
+data/raw/
