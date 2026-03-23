@@ -234,9 +234,9 @@ def recommend(movie_display: str, industry: str = "All", top_n: int = 5):
         recommendations.append({
             "row":           row,
             "omdb":          movie_data,
-            "score":         round(scores[i] * 100, 1),
-            "sem_score":     round(similarity_scores[i] * 100, 1),
-            "genre_score":   round(genre_scores[i] * 100, 1),
+            "score":         round(float(scores[i]) * 100, 1),
+            "sem_score":     round(float(similarity_scores[i]) * 100, 1),
+            "genre_score":   round(float(genre_scores[i]) * 100, 1),
             "shared_genres": shared_genres_str,
         })
 
