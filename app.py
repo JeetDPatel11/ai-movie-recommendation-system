@@ -86,6 +86,48 @@ st.markdown("""
         margin: 8px 0;
         border-left: 3px solid #ff6b6b;
     }
+    .trending-card {
+        background: #1e1e2e;
+        border: 1px solid #3a3a5c;
+        border-radius: 12px;
+        padding: 12px;
+        text-align: center;
+        height: 100%;
+    }
+    .trending-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: #ffffff;
+        margin: 8px 0 4px 0;
+        line-height: 1.3;
+    }
+    .trending-meta {
+        font-size: 0.75rem;
+        color: #a0a0c0;
+        margin: 2px 0;
+    }
+    .trending-rating {
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #ffd700;
+        margin: 4px 0;
+    }
+    .genre-badge {
+        display: inline-block;
+        background: #2a2a4e;
+        border-radius: 10px;
+        padding: 2px 8px;
+        font-size: 0.7rem;
+        color: #a0a0ff;
+        margin: 2px 1px;
+    }
+    .section-header {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 24px 0 16px 0;
+        padding-bottom: 8px;
+        border-bottom: 2px solid #3a3a5c;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -126,6 +168,23 @@ def fetch_movie_details(title: str):
     except Exception:
         pass
     return None
+
+
+# -------------------------------------------------
+# TRENDING MOVIES
+# — Top 10 movies by combined rating + votes
+# — Cached so it only runs once per session
+# -------------------------------------------------
+
+@st.cache_data
+def get_trending_movies(n: int = 10):
+    """Return top N movies ranked by rating × log(votes)."""
+    df = movies.copy()
+    df = df[df["rating"].notna() & df["votes"].notna()]
+    df = df[df["votes"] > 50000]       # only well-known movies
+    df = df[df["year"] >= 1990]        # modern movies only
+    df["trend_score"] = df["rating"] * np.log1p(df["votes"])
+    return df.sort_values("trend_score", ascending=False).head(n)
 
 
 # -------------------------------------------------
@@ -262,8 +321,9 @@ page = st.sidebar.radio(
 if page == "🎯 Recommend":
 
     st.title("🎬 AI Movie Recommendation System")
-    st.caption("Powered by semantic embeddings + IMDb data")
+    st.caption("Powered by semantic embeddings + IMDb data · 272,393 movies")
 
+    # Sidebar Filters
     with st.sidebar:
         st.markdown("---")
         st.header("🔧 Filters")
@@ -278,6 +338,48 @@ if page == "🎯 Recommend":
         )
         top_n = st.slider("Number of Recommendations", min_value=3, max_value=15, value=5)
         min_rating = st.slider("Minimum IMDb Rating", min_value=0.0, max_value=9.0, value=5.0, step=0.5)
+
+    # ── Trending Movies Section ───────────────────────────────────────────────
+    st.markdown("<div class='section-header'>🔥 Trending Movies</div>", unsafe_allow_html=True)
+    st.caption("Top rated & most popular movies from our database")
+
+    trending = get_trending_movies(10)
+
+    # Show in 2 rows of 5
+    for row_start in [0, 5]:
+        cols = st.columns(5)
+        for col_idx, (_, movie_row) in enumerate(trending.iloc[row_start:row_start+5].iterrows()):
+            with cols[col_idx]:
+                omdb = fetch_movie_details(movie_row["title"])
+
+                # Poster
+                if omdb and omdb.get("Poster", "N/A") != "N/A":
+                    st.image(omdb["Poster"], use_container_width=True)
+                else:
+                    st.markdown("🎞️")
+
+                # Title (truncate if too long)
+                title_display = movie_row["title"]
+                if len(title_display) > 22:
+                    title_display = title_display[:22] + "…"
+
+                # Genres as badges
+                genres = str(movie_row["genres"]).split()[:2]
+                genre_html = "".join([f"<span class='genre-badge'>{g}</span>" for g in genres])
+
+                st.markdown(f"""
+                <div class='trending-card'>
+                    <div class='trending-title'>{title_display}</div>
+                    <div class='trending-rating'>⭐ {movie_row['rating']}</div>
+                    <div class='trending-meta'>{int(movie_row['year'])}</div>
+                    <div style='margin-top:4px'>{genre_html}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    # ── Movie Selector ────────────────────────────────────────────────────────
+    st.markdown("<div class='section-header'>🎯 Get Recommendations</div>", unsafe_allow_html=True)
 
     movie_list     = movies["display_title"].dropna().unique()
     selected_movie = st.selectbox(
@@ -341,7 +443,7 @@ if page == "🎯 Recommend":
 
                     # Match score bar
                     st.markdown(f"<p class='score-label'>🎯 Overall Match Score: {score}%</p>", unsafe_allow_html=True)
-                    st.progress(min(score / 100, 1.0))
+                    st.progress(float(min(score / 100, 1.0)))
 
                     # Why recommended
                     st.markdown(
@@ -407,7 +509,7 @@ elif page == "📊 Evaluation":
 
     st.markdown("#### Signal Weights Breakdown")
     weight_df = pd.DataFrame({
-        "Signal":  ["Semantic Similarity", "Genre Overlap", "IMDb Rating", "Popularity"],
+        "Signal":   ["Semantic Similarity", "Genre Overlap", "IMDb Rating", "Popularity"],
         "Weight %": [50, 25, 15, 10]
     })
     st.bar_chart(weight_df.set_index("Signal"))
@@ -429,7 +531,7 @@ elif page == "📊 Evaluation":
         | Model size | ~90 MB |
         | Embeddings file size | ~399 MB (272k movies) |
         | Embedding size | 384 dimensions per movie |
-        | Input | Title + year + genres |
+        | Input | "Title. Released in YEAR. Genres: genre1, genre2." |
         """)
 
     with col2:
