@@ -4,8 +4,6 @@ import pickle
 import requests
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
-import os
-import gdown
 
 # -------------------------------------------------
 # PAGE CONFIG
@@ -27,33 +25,11 @@ st.caption("Powered by semantic embeddings + IMDb data")
 @st.cache_data
 def load_data():
 
-    os.makedirs("models", exist_ok=True)
+    movies = pd.read_pickle("models/movies_metadata.pkl")
 
-    movies_path = "models/movies_metadata.pkl"
-    embeddings_path = "models/semantic_embeddings.pkl"
-
-    # ---- Check movies file ----
-    if not os.path.exists(movies_path):
-        st.error("movies_metadata.pkl not found in models folder.")
-        st.stop()
-
-    # ---- Download embeddings if missing ----
-    if not os.path.exists(embeddings_path):
-
-        st.info("Downloading embeddings file. Please wait...")
-
-        file_id = "13k3As0EXIw4eBw6QrdiyXuVwkbztJOv-"
-        url = f"https://drive.google.com/uc?id={file_id}"
-
-        gdown.download(url, embeddings_path, quiet=False)
-
-    # ---- Load data ----
-    movies = pd.read_pickle(movies_path)
-
-    with open(embeddings_path, "rb") as f:
+    with open("models/semantic_embeddings.pkl", "rb") as f:
         embeddings = pickle.load(f)
 
-    # ---- Data cleaning ----
     movies["year"] = movies["year"].fillna(0).astype(int)
     movies["display_title"] = movies["title"] + " (" + movies["year"].astype(str) + ")"
 
@@ -74,7 +50,7 @@ def fetch_movie_details(title: str):
     """Fetch movie metadata from OMDB. Returns dict or None."""
     try:
         url = f"http://www.omdbapi.com/?t={requests.utils.quote(title)}&apikey={API_KEY}"
-        response = requests.get(url, timeout=5)
+        response = requests.get(url, timeout=3)
         data = response.json()
         if data.get("Response") == "True":
             return data
@@ -84,8 +60,7 @@ def fetch_movie_details(title: str):
 
 
 # -------------------------------------------------
-# INDUSTRY FILTER  (on OMDB data dict)
-# ✅ FIX: Use "in" checks — OMDB returns comma-separated strings
+# INDUSTRY FILTER
 # -------------------------------------------------
 
 def filter_by_industry(movie_data: dict, industry: str) -> bool:
@@ -116,7 +91,6 @@ def filter_by_industry(movie_data: dict, industry: str) -> bool:
 
 # -------------------------------------------------
 # GENRE OVERLAP
-# ✅ FIX: Split on space (genres stored space-separated after feature_engineering)
 # -------------------------------------------------
 
 def genre_overlap(g1, g2) -> int:
@@ -127,19 +101,14 @@ def genre_overlap(g1, g2) -> int:
 
 # -------------------------------------------------
 # RECOMMENDER
-# ✅ IMPROVEMENTS:
-#   - Normalised genre score
-#   - Vectorised score computation
-#   - Progress bar while fetching OMDB results
-#   - Graceful empty-result message
 # -------------------------------------------------
 
-def recommend(movie_display: str, industry: str = "All", top_n: int = 5) -> pd.DataFrame:
+def recommend(movie_display: str, industry: str = "All", top_n: int = 5) -> list:
 
     movie_row = movies[movies["display_title"] == movie_display]
 
     if movie_row.empty:
-        return pd.DataFrame()
+        return []
 
     idx = movie_row.index[0]
 
@@ -177,12 +146,10 @@ def recommend(movie_display: str, industry: str = "All", top_n: int = 5) -> pd.D
     sorted_indices = np.argsort(scores)[::-1]
 
     recommendations = []
-
-    # ✅ NEW: Show a progress bar while we query OMDB
     progress = st.progress(0, text="Fetching movie details…")
     checked  = 0
 
-    for i in sorted_indices:
+    for i in sorted_indices[:50]:  # check max 50 candidates
 
         if len(recommendations) >= top_n:
             break
@@ -191,7 +158,7 @@ def recommend(movie_display: str, industry: str = "All", top_n: int = 5) -> pd.D
         movie_data = fetch_movie_details(row["title"])
 
         checked += 1
-        progress.progress(min(checked / (top_n * 6), 1.0), text="Fetching movie details…")
+        progress.progress(min(checked / 50, 1.0), text="Fetching movie details…")
 
         if movie_data is None:
             continue
@@ -203,11 +170,11 @@ def recommend(movie_display: str, industry: str = "All", top_n: int = 5) -> pd.D
 
     progress.empty()
 
-    return recommendations  # list of dicts with "row" and "omdb" keys
+    return recommendations
 
 
 # -------------------------------------------------
-# SIDEBAR FILTERS  (✅ moved to sidebar — cleaner layout)
+# SIDEBAR FILTERS
 # -------------------------------------------------
 
 with st.sidebar:
@@ -225,7 +192,6 @@ with st.sidebar:
 
     top_n = st.slider("Number of Recommendations", min_value=3, max_value=15, value=5)
 
-    # ✅ NEW: Min IMDb rating filter
     min_rating = st.slider("Minimum IMDb Rating", min_value=0.0, max_value=9.0, value=5.0, step=0.5)
 
 # -------------------------------------------------
@@ -263,7 +229,7 @@ if st.button("🍿 Recommend", use_container_width=True):
             if country_filter != "All" and country_filter not in movie_country:
                 continue
 
-            # ✅ NEW: Rating filter
+            # Rating filter
             try:
                 imdb_rating = float(movie_data.get("imdbRating", 0))
             except (ValueError, TypeError):
@@ -272,7 +238,7 @@ if st.button("🍿 Recommend", use_container_width=True):
             if imdb_rating < min_rating:
                 continue
 
-            # ── Card layout ───────────────────────────────────────────────────
+            # Card layout
             col1, col2 = st.columns([1, 3])
 
             with col1:
@@ -285,7 +251,6 @@ if st.button("🍿 Recommend", use_container_width=True):
             with col2:
                 st.markdown(f"### {movie_data['Title']} ({movie_data.get('Year','?')})")
 
-                # ✅ NEW: Inline metrics row
                 m1, m2, m3 = st.columns(3)
                 m1.metric("⭐ IMDb", movie_data.get("imdbRating", "N/A"))
                 m2.metric("⏱️ Runtime", movie_data.get("Runtime", "N/A"))
