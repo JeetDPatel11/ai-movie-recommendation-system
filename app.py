@@ -763,14 +763,14 @@ elif page == "🆚 Compare Movies":
                 with g2:
                     m1_title = omdb1["Title"] if omdb1 else movies.loc[idx1, "title"]
                     st.markdown(f"""<div class='about-section'>
-                        <b style='color:#a0a0ff'>🎬 Only in {m1_title[:15]}</b><br>
+                        <b style='color:#a0a0ff'>🎬 Only in {m1_title[:30]}</b><br>
                         <span style='color:#a0a0c0'>{only1_str}</span>
                     </div>""", unsafe_allow_html=True)
 
                 with g3:
                     m2_title = omdb2["Title"] if omdb2 else movies.loc[idx2, "title"]
                     st.markdown(f"""<div class='about-section'>
-                        <b style='color:#ffd700'>🎬 Only in {m2_title[:15]}</b><br>
+                        <b style='color:#ffd700'>🎬 Only in {m2_title[:30]}</b><br>
                         <span style='color:#a0a0c0'>{only2_str}</span>
                     </div>""", unsafe_allow_html=True)
 
