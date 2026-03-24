@@ -1,4 +1,4 @@
-# 🎬 AI Movie Recommendation System
+# 🎬 AI-Based Movie Recommendation System
 
 An AI-powered movie recommendation system that suggests similar movies using **semantic similarity, genre overlap, ratings, and popularity metrics**.
 
