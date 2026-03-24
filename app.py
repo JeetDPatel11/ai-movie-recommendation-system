@@ -177,7 +177,7 @@ def fetch_movie_details(title: str):
 # -------------------------------------------------
 
 @st.cache_data
-def get_top_rated_movies(n: int = 10):
+def get_trending_movies(n: int = 10):
     """Return top N movies ranked by rating × log(votes)."""
     df = movies.copy()
     df = df[df["rating"].notna() & df["votes"].notna()]
@@ -310,7 +310,7 @@ def recommend(movie_display: str, industry: str = "All", top_n: int = 5):
 st.sidebar.title("🎬 Navigation")
 page = st.sidebar.radio(
     "Go to",
-    ["🎯 Recommend", "📊 Evaluation", "ℹ️ About"]
+    ["🎯 Recommend", "📊 Evaluation", "🆚 Compare Movies", "ℹ️ About"]
 )
 
 
@@ -339,11 +339,11 @@ if page == "🎯 Recommend":
         top_n = st.slider("Number of Recommendations", min_value=3, max_value=15, value=5)
         min_rating = st.slider("Minimum IMDb Rating", min_value=0.0, max_value=9.0, value=5.0, step=0.5)
 
-    # ── Top Rated Movies Section ───────────────────────────────────────────────
-    st.markdown("<div class='section-header'>🏆 Top Rated Movies</div>", unsafe_allow_html=True)
+    # ── Trending Movies Section ───────────────────────────────────────────────
+    st.markdown("<div class='section-header'>🔥 Trending Movies</div>", unsafe_allow_html=True)
     st.caption("Top rated & most popular movies from our database")
 
-    trending = get_top_rated_movies(10)
+    trending = get_trending_movies(10)
 
     # Show in 2 rows of 5
     for row_start in [0, 5]:
@@ -599,7 +599,212 @@ elif page == "📊 Evaluation":
 
 
 # =================================================
-# PAGE 3 — ABOUT
+# PAGE 3 — COMPARE MOVIES
+# =================================================
+
+elif page == "🆚 Compare Movies":
+
+    st.title("🆚 Movie Comparison Tool")
+    st.caption("Compare any two movies and see how similar they are using AI")
+
+    st.markdown("---")
+
+    # ── Movie Selectors ───────────────────────────────────────────────────────
+    movie_list = sorted(movies["display_title"].dropna().unique())
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown("### 🎬 Movie 1")
+        movie1 = st.selectbox(
+            "Select first movie",
+            movie_list,
+            key="compare_movie1",
+            index=movie_list.index("Inception (2010)") if "Inception (2010)" in movie_list else 0
+        )
+
+    with col2:
+        st.markdown("### 🎬 Movie 2")
+        movie2 = st.selectbox(
+            "Select second movie",
+            movie_list,
+            key="compare_movie2",
+            index=movie_list.index("Interstellar (2014)") if "Interstellar (2014)" in movie_list else 1
+        )
+
+    st.markdown("---")
+
+    if st.button("🔍 Compare Movies", use_container_width=True):
+
+        if movie1 == movie2:
+            st.warning("⚠️ Please select two different movies to compare!")
+        else:
+            # Get movie rows
+            row1 = movies[movies["display_title"] == movie1]
+            row2 = movies[movies["display_title"] == movie2]
+
+            if row1.empty or row2.empty:
+                st.error("One or both movies not found in dataset.")
+            else:
+                idx1 = row1.index[0]
+                idx2 = row2.index[0]
+
+                # ── Calculate scores ──────────────────────────────────────────
+                sem_score = float(cosine_similarity(
+                    [embeddings[idx1]], [embeddings[idx2]]
+                )[0][0])
+
+                genres1 = set(str(movies.loc[idx1, "genres"]).split())
+                genres2 = set(str(movies.loc[idx2, "genres"]).split())
+
+                shared_genres  = genres1.intersection(genres2)
+                all_genres     = genres1.union(genres2)
+                genre_sim      = len(shared_genres) / max(len(all_genres), 1)
+
+                # Overall similarity (weighted)
+                overall_sim = round((0.65 * sem_score + 0.35 * genre_sim) * 100, 1)
+                sem_pct     = round(sem_score * 100, 1)
+                genre_pct   = round(genre_sim * 100, 1)
+
+                shared_str = ", ".join(shared_genres) if shared_genres else "None"
+                only1_str  = ", ".join(genres1 - genres2) if genres1 - genres2 else "None"
+                only2_str  = ", ".join(genres2 - genres1) if genres2 - genres1 else "None"
+
+                # ── Fetch OMDB data ───────────────────────────────────────────
+                with st.spinner("Fetching movie details…"):
+                    omdb1 = fetch_movie_details(movies.loc[idx1, "title"])
+                    omdb2 = fetch_movie_details(movies.loc[idx2, "title"])
+
+                # ── Movie Cards Side by Side ──────────────────────────────────
+                col1, col2 = st.columns(2)
+
+                for col, omdb, row_data in [(col1, omdb1, movies.loc[idx1]),
+                                             (col2, omdb2, movies.loc[idx2])]:
+                    with col:
+                        # Poster
+                        if omdb and omdb.get("Poster", "N/A") != "N/A":
+                            st.image(omdb["Poster"], width=200)
+                        else:
+                            st.markdown("🎞️ *No poster*")
+
+                        title_show = omdb["Title"] if omdb else row_data["title"]
+                        year_show  = omdb.get("Year", str(row_data["year"])) if omdb else str(row_data["year"])
+
+                        st.markdown(f"### {title_show} ({year_show})")
+
+                        if omdb:
+                            m1, m2 = st.columns(2)
+                            m1.metric("⭐ IMDb", omdb.get("imdbRating", "N/A"))
+                            m2.metric("⏱️ Runtime", omdb.get("Runtime", "N/A"))
+                            st.write(f"🎭 **Genre:** {omdb.get('Genre', 'N/A')}")
+                            st.write(f"🎬 **Director:** {omdb.get('Director', 'N/A')}")
+                            st.write(f"🌍 **Country:** {omdb.get('Country', 'N/A')}")
+                            st.write(f"📝 **Plot:** {omdb.get('Plot', 'N/A')}")
+
+                st.markdown("---")
+
+                # ── Similarity Score ──────────────────────────────────────────
+                st.markdown("### 🎯 Similarity Analysis")
+
+                # Color based on score
+                if overall_sim >= 75:
+                    color   = "#4caf50"
+                    verdict = "🟢 Very Similar"
+                elif overall_sim >= 50:
+                    color   = "#ff9800"
+                    verdict = "🟡 Somewhat Similar"
+                elif overall_sim >= 25:
+                    color   = "#ff6b6b"
+                    verdict = "🟠 Slightly Similar"
+                else:
+                    color   = "#f44336"
+                    verdict = "🔴 Not Similar"
+
+                # Big score display
+                st.markdown(f"""
+                <div style='text-align:center; padding: 30px;
+                     background: #1e1e2e; border-radius: 16px;
+                     border: 2px solid {color}; margin: 16px 0;'>
+                    <div style='font-size: 4rem; font-weight: 700;
+                         color: {color};'>{overall_sim}%</div>
+                    <div style='font-size: 1.2rem; color: #ffffff;
+                         margin-top: 8px;'>Overall Similarity</div>
+                    <div style='font-size: 1rem; color: #a0a0c0;
+                         margin-top: 4px;'>{verdict}</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+                # Score breakdown
+                st.markdown("#### 📊 Score Breakdown")
+
+                c1, c2 = st.columns(2)
+
+                with c1:
+                    st.markdown(f"<p class='score-label'>🧠 Semantic Similarity: {sem_pct}%</p>", unsafe_allow_html=True)
+                    st.progress(float(min(sem_pct / 100, 1.0)))
+
+                with c2:
+                    st.markdown(f"<p class='score-label'>🎭 Genre Similarity: {genre_pct}%</p>", unsafe_allow_html=True)
+                    st.progress(float(min(genre_pct / 100, 1.0)))
+
+                st.markdown("---")
+
+                # ── Genre Analysis ────────────────────────────────────────────
+                st.markdown("#### 🎭 Genre Analysis")
+
+                g1, g2, g3 = st.columns(3)
+
+                with g1:
+                    st.markdown(f"""<div class='about-section'>
+                        <b style='color:#4caf50'>✅ Shared Genres</b><br>
+                        <span style='color:#a0a0c0'>{shared_str}</span>
+                    </div>""", unsafe_allow_html=True)
+
+                with g2:
+                    m1_title = omdb1["Title"] if omdb1 else movies.loc[idx1, "title"]
+                    st.markdown(f"""<div class='about-section'>
+                        <b style='color:#a0a0ff'>🎬 Only in {m1_title[:15]}</b><br>
+                        <span style='color:#a0a0c0'>{only1_str}</span>
+                    </div>""", unsafe_allow_html=True)
+
+                with g3:
+                    m2_title = omdb2["Title"] if omdb2 else movies.loc[idx2, "title"]
+                    st.markdown(f"""<div class='about-section'>
+                        <b style='color:#ffd700'>🎬 Only in {m2_title[:15]}</b><br>
+                        <span style='color:#a0a0c0'>{only2_str}</span>
+                    </div>""", unsafe_allow_html=True)
+
+                st.markdown("---")
+
+                # ── IMDb Rating Comparison ────────────────────────────────────
+                if omdb1 and omdb2:
+                    st.markdown("#### ⭐ IMDb Rating Comparison")
+
+                    try:
+                        r1 = float(omdb1.get("imdbRating", 0))
+                        r2 = float(omdb2.get("imdbRating", 0))
+                        t1 = omdb1.get("Title", "Movie 1")
+                        t2 = omdb2.get("Title", "Movie 2")
+
+                        rating_df = pd.DataFrame({
+                            "Movie":  [t1[:20], t2[:20]],
+                            "Rating": [r1, r2]
+                        })
+                        st.bar_chart(rating_df.set_index("Movie"))
+
+                        if r1 > r2:
+                            st.success(f"🏆 **{t1}** has a higher IMDb rating ({r1} vs {r2})")
+                        elif r2 > r1:
+                            st.success(f"🏆 **{t2}** has a higher IMDb rating ({r2} vs {r1})")
+                        else:
+                            st.info(f"🤝 Both movies have the same IMDb rating ({r1})")
+
+                    except (ValueError, TypeError):
+                        pass
+
+
+# =================================================
+# PAGE 4 — ABOUT
 # =================================================
 
 elif page == "ℹ️ About":
