@@ -10,7 +10,7 @@ import numpy as np
 # -------------------------------------------------
 
 st.set_page_config(
-    page_title="AI Movie Recommendation System",
+    page_title="AI-Based Movie Recommendation System",
     page_icon="🎬",
     layout="wide"
 )
