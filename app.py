@@ -320,7 +320,7 @@ page = st.sidebar.radio(
 
 if page == "🎯 Recommend":
 
-    st.title("🎬 AI Movie Recommendation System")
+    st.title("🎬 AI-Based Movie Recommendation System")
     st.caption("Powered by semantic embeddings + IMDb data · 272,393 movies")
 
     # Sidebar Filters
@@ -812,7 +812,7 @@ elif page == "ℹ️ About":
     st.title("ℹ️ About This Project")
 
     st.markdown("""<div class='about-section'>
-        <h3>🎬 AI Movie Recommendation System</h3>
+        <h3>🎬 AI-Based Movie Recommendation System</h3>
         <p>A content-based movie recommendation system that uses <b>semantic embeddings</b>
         and <b>TF-IDF vectorization</b> to find movies similar to any given movie from a
         database of <b>272,393 IMDb movies</b>.</p>
