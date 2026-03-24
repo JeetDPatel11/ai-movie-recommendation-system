@@ -177,7 +177,7 @@ def fetch_movie_details(title: str):
 # -------------------------------------------------
 
 @st.cache_data
-def get_trending_movies(n: int = 10):
+def get_top_rated_movies(n: int = 10):
     """Return top N movies ranked by rating × log(votes)."""
     df = movies.copy()
     df = df[df["rating"].notna() & df["votes"].notna()]
@@ -339,11 +339,11 @@ if page == "🎯 Recommend":
         top_n = st.slider("Number of Recommendations", min_value=3, max_value=15, value=5)
         min_rating = st.slider("Minimum IMDb Rating", min_value=0.0, max_value=9.0, value=5.0, step=0.5)
 
-    # ── Trending Movies Section ───────────────────────────────────────────────
-    st.markdown("<div class='section-header'>🔥 Trending Movies</div>", unsafe_allow_html=True)
+    # ── Top Rated Movies Section ───────────────────────────────────────────────
+    st.markdown("<div class='section-header'>🏆 Top Rated Movies</div>", unsafe_allow_html=True)
     st.caption("Top rated & most popular movies from our database")
 
-    trending = get_trending_movies(10)
+    trending = get_top_rated_movies(10)
 
     # Show in 2 rows of 5
     for row_start in [0, 5]:
