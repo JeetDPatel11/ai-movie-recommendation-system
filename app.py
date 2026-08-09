@@ -320,7 +320,7 @@ page = st.sidebar.radio(
 
 if page == "🎯 Recommend":
 
-    st.title("🎬 AI-Based Movie Recommendation System")
+    st.title("🎬 AI-Powered Movie Recommendation & Analytics System")
     st.caption("Powered by semantic embeddings + IMDb data · 272,393 movies")
 
     # Sidebar Filters
